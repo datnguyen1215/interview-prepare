@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mock interview UI options</title>
+<style>
+:root {
+  --bg:#0c0c0d; --panel:#16161a; --fg:#f4f4f5; --muted:#a1a1aa; --line:#27272a;
+  --accent:#60a5fa; --good:#4ade80; --bad:#f87171; --warn:#fbbf24;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--bg); color: var(--fg); margin: 0; font-family: system-ui, sans-serif; }
+.page { max-width: 1180px; margin: 0 auto; padding: 24px 16px 80px; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+.lede { color: var(--muted); margin: 0 0 24px; max-width: 820px; }
+.variant { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 32px; overflow: hidden; }
+.variant > header { padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.variant > header h2 { font-size: 16px; margin: 0; }
+.variant > header ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; flex-basis: 100%; }
+.badge { background: var(--accent); color: #0c0c0d; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+.stage { padding: 20px; }
+button, input, select { font: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* shared bits */
+.screen { position: relative; aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid var(--line); }
+.screen svg { position: absolute; inset: 10% 12%; width: 76%; height: 80%; }
+.screen .pip { position: absolute; right: 3%; bottom: 4%; width: 22%; aspect-ratio: 4/3; border-radius: 6px; background: radial-gradient(circle at 50% 40%, #a8a29e 0 18%, #57534e 19% 34%, #292524 35%); border: 2px solid #0c0c0d; }
+.wave { display: inline-flex; gap: 3px; align-items: center; height: 22px; }
+.wave i { width: 3px; height: 4px; background: currentColor; border-radius: 2px; transition: height .1s; }
+.btn { min-height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #0c0c0d; font-weight: 700; }
+.btn.danger:hover { border-color: var(--bad); color: var(--bad); }
+.ptt { min-height: 48px; padding: 0 18px; border-radius: 99px; border: 2px solid var(--good); background: transparent; color: var(--good); font-weight: 700; cursor: pointer; user-select: none; }
+.ptt[aria-pressed="true"] { background: var(--good); color: #0c0c0d; }
+.tag { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.timer { font-variant-numeric: tabular-nums; }
+.msg { display: grid; gap: 2px; }
+.msg .who { font-size: 12px; color: var(--muted); }
+.msg.ai .body { color: var(--fg); }
+.msg.me .body { color: #cbd5e1; }
+.msg .body.live::after { content: "▍"; animation: blink 1s infinite; color: var(--good); }
+@keyframes blink { 50% { opacity: 0; } }
+.phases { display: flex; gap: 4px; }
+.phases span { flex: 1; font-size: 12px; padding: 6px 8px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.phases span.done { color: var(--good); border-color: #166534; }
+.phases span.done::before { content: "✓ "; }
+.phases span.now { color: var(--fg); border-color: var(--accent); }
+.phases span.now::before { content: "● "; color: var(--accent); }
+
+/* Current */
+.cur { display: grid; grid-template-columns: 1fr 260px; gap: 16px; }
+.cur .side { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; align-content: start; font-size: 14px; }
+.cur .side small { display: block; color: var(--muted); font-size: 12px; }
+.cur .rec { min-height: 48px; border-radius: 8px; border: 0; background: var(--bad); color: #0c0c0d; font-weight: 700; }
+
+/* Option 1: Interview room */
+.room { display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+.room .topbar { grid-column: 1 / -1; display: flex; gap: 12px; align-items: center; }
+.room .topbar .phases { flex: 1; }
+.room .convo { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; display: flex; flex-direction: column; min-height: 100%; }
+.room .now-q { padding: 14px; border-bottom: 1px solid var(--line); }
+.room .now-q p { margin: 6px 0 0; font-size: 15px; line-height: 1.4; }
+.room .now-q .speaking { display: flex; align-items: center; gap: 8px; color: var(--accent); font-size: 13px; }
+.room .log { flex: 1; padding: 14px; display: grid; gap: 12px; align-content: start; font-size: 14px; max-height: 300px; overflow: auto; }
+.room .controls { padding: 12px; border-top: 1px solid var(--line); display: flex; gap: 8px; flex-wrap: wrap; }
+.room .controls .ptt { flex: 1; }
+
+/* Option 2: Video call */
+.call { position: relative; background: #000; border-radius: 10px; overflow: hidden; }
+.call .main { aspect-ratio: 16/9; }
+.call .main .screen { border-radius: 0; border: 0; height: 100%; }
+.call .tiles { position: absolute; right: 12px; top: 12px; display: grid; gap: 8px; width: 200px; }
+.tile { aspect-ratio: 16/10; border-radius: 8px; background: #1c1c22; border: 2px solid transparent; display: grid; place-items: center; position: relative; }
+.tile.talking { border-color: var(--good); }
+.tile .avatar { width: 54px; height: 54px; border-radius: 50%; background: linear-gradient(135deg, #60a5fa, #a78bfa); display: grid; place-items: center; font-weight: 700; color: #0c0c0d; }
+.tile .me { position: absolute; inset: 0; border-radius: 6px; background: radial-gradient(circle at 50% 40%, #a8a29e 0 18%, #57534e 19% 34%, #292524 35%); }
+.tile label { position: absolute; left: 6px; bottom: 4px; font-size: 12px; background: rgba(0,0,0,.6); padding: 1px 6px; border-radius: 4px; }
+.call .captions { position: absolute; left: 50%; bottom: 76px; transform: translateX(-50%); max-width: 70%; background: rgba(0,0,0,.78); padding: 8px 14px; border-radius: 8px; font-size: 16px; line-height: 1.4; text-align: center; }
+.call .captions b { color: var(--accent); font-weight: 600; }
+.call .dock { position: absolute; left: 0; right: 0; bottom: 0; display: flex; gap: 10px; justify-content: center; align-items: center; padding: 12px; background: linear-gradient(transparent, rgba(0,0,0,.85)); }
+.call .dock .timer { position: absolute; left: 16px; color: var(--muted); }
+.round { width: 48px; height: 48px; border-radius: 50%; border: 0; background: #2a2a31; color: var(--fg); cursor: pointer; font-size: 18px; }
+.round:hover { background: #3a3a43; }
+.round.end { background: var(--bad); color: #0c0c0d; width: auto; padding: 0 18px; border-radius: 24px; font-size: 15px; font-weight: 700; }
+.drawer-btn { position: absolute; left: 12px; top: 12px; }
+
+/* Option 3: Coach */
+.coach { display: grid; grid-template-columns: 240px 1fr 300px; gap: 12px; }
+.coach .col { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; font-size: 14px; }
+.coach h3 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.coach .brief { line-height: 1.45; margin: 0 0 14px; }
+.coach .rubric { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.coach .rubric li { display: flex; gap: 8px; }
+.coach .rubric .y { color: var(--good); } .coach .rubric .n { color: var(--muted); }
+.coach .nudge { margin-top: 14px; border: 1px solid #854d0e; background: #1f1708; color: #fde68a; padding: 10px; border-radius: 8px; font-size: 13px; }
+.coach .center { display: grid; gap: 10px; align-content: start; }
+.coach .center .bar { display: flex; gap: 8px; align-items: center; }
+.coach .log { display: grid; gap: 10px; max-height: 360px; overflow: auto; }
+
+/* Option 4: Voice-first */
+.voice { display: grid; place-items: center; gap: 18px; padding: 28px 0; text-align: center; }
+.orb { width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #93c5fd, #3b82f6 45%, #1e3a8a); box-shadow: 0 0 0 0 rgba(96,165,250,.35); transition: box-shadow .12s, transform .12s; }
+.orb.listening { background: radial-gradient(circle at 40% 35%, #bbf7d0, #22c55e 45%, #14532d); }
+.voice .q { font-size: 22px; line-height: 1.35; max-width: 640px; margin: 0; }
+.voice .you { color: var(--muted); max-width: 640px; min-height: 1.4em; }
+.voice .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.voice .mini { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 13px; }
+.voice .mini .screen { width: 160px; }
+
+@media (max-width: 900px) {
+  .room, .coach, .cur { grid-template-columns: 1fr; }
+  .call .tiles { width: 120px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Mock interview: layout options</h1>
+  <p class="lede">The same moment in every panel: a system design interview ("Design Twitter"), 14 minutes in, during the high-level design phase. The AI interviewer speaks with the ksay voice and your answers are transcribed live. Push-to-talk, hint and phase buttons all work, and the waveforms move.</p>
+
+  <!-- CURRENT -->
+  <section class="variant">
+    <header><h2>Current</h2><ul><li>The Studio recorder: preview, device checks and Record. No interviewer, no transcript.</li></ul></header>
+    <div class="stage">
+      <div class="cur">
+        <div class="screen"><svg viewBox="0 0 300 160" fill="none" stroke="#475569" stroke-width="2"><rect x="10" y="60" width="60" height="36" rx="4"/><rect x="120" y="20" width="60" height="36" rx="4"/><rect x="120" y="104" width="60" height="36" rx="4"/><rect x="230" y="60" width="60" height="36" rx="4"/><path d="M70 78h50M180 38l50 40M180 122l50-44"/></svg><div class="pip"></div></div>
+        <div class="side">
+          <div><span style="color:var(--good)">✓</span> <b>Camera</b><small>Microsoft LifeCam Studio</small></div>
+          <div><span style="color:var(--good)">✓</span> <b>Microphone</b><small>USB PnP Audio Device</small></div>
+          <div><span style="color:var(--good)">✓</span> <b>System sound</b><small>System_Audio</small></div>
+          <button class="rec">● Record</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- OPTION 1 -->
+  <section class="variant" data-demo>
+    <header><h2>Option 1: Interview room</h2><span class="badge">Recommended</span>
+      <ul><li>Keeps the Studio layout. The sidebar becomes the interviewer panel: the current question pinned at the top, the transcript below, and push-to-talk at the bottom.</li>
+      <li>Phase bar plus timer across the top keeps your pacing visible (requirements → high level → deep dive → wrap-up).</li>
+      <li>Trade-off: busier than a real call, but you can always re-read a question you missed hearing.</li></ul></header>
+    <div class="stage">
+      <div class="room">
+        <div class="topbar">
+          <span class="tag">Design Twitter</span>
+          <div class="phases" data-phases><span class="done">Requirements</span><span class="now">High-level design</span><span>Deep dive</span><span>Wrap-up</span></div>
+          <span class="timer" data-timer>14:02</span><span style="color:var(--muted)">/ 45:00</span>
+        </div>
+        <div class="screen"><svg viewBox="0 0 300 160" fill="none" stroke="#475569" stroke-width="2"><rect x="10" y="60" width="60" height="36" rx="4"/><rect x="120" y="20" width="60" height="36" rx="4"/><rect x="120" y="104" width="60" height="36" rx="4"/><rect x="230" y="60" width="60" height="36" rx="4"/><path d="M70 78h50M180 38l50 40M180 122l50-44"/></svg><div class="pip"></div></div>
+        <aside class="convo">
+          <div class="now-q">
+            <div class="speaking" style="color:var(--accent)"><span class="wave" data-wave="ai"><i></i><i></i><i></i><i></i><i></i><i></i></span><span data-who>Interviewer speaking</span></div>
+            <p>How does the home timeline get built when a user follows 5,000 accounts?</p>
+          </div>
+          <div class="log" data-log>
+            <div class="msg ai"><span class="who">Interviewer · 12:40</span><span class="body">Walk me through the write path for posting a tweet.</span></div>
+            <div class="msg me"><span class="who">You · 12:58</span><span class="body">The client hits the tweet service, which writes to the tweets table and then publishes an event to a fan-out queue…</span></div>
+            <div class="msg ai"><span class="who">Interviewer · 13:55</span><span class="body">How does the home timeline get built when a user follows 5,000 accounts?</span></div>
+          </div>
+          <div class="controls">
+            <button class="ptt" aria-pressed="false" data-ptt>Hold Space to talk</button>
+            <button class="btn" data-hint>Hint</button>
+            <button class="btn" data-next>Next phase</button>
+            <button class="btn danger">End</button>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- OPTION 2 -->
+  <section class="variant" data-demo>
+    <header><h2>Option 2: Video call</h2>
+      <ul><li>Looks like a real Zoom interview: your shared screen fills the frame, with the interviewer and your camera as small tiles. Whoever is talking gets a green outline.</li>
+      <li>Only the current line shows, as captions. The full transcript is hidden in a drawer.</li>
+      <li>Trade-off: the most realistic pressure, but no visible pacing and it's easy to lose the thread.</li></ul></header>
+    <div class="stage">
+      <div class="call">
+        <div class="main"><div class="screen"><svg viewBox="0 0 300 160" fill="none" stroke="#475569" stroke-width="2"><rect x="10" y="60" width="60" height="36" rx="4"/><rect x="120" y="20" width="60" height="36" rx="4"/><rect x="120" y="104" width="60" height="36" rx="4"/><rect x="230" y="60" width="60" height="36" rx="4"/><path d="M70 78h50M180 38l50 40M180 122l50-44"/></svg></div></div>
+        <button class="btn drawer-btn">☰ Transcript</button>
+        <div class="tiles">
+          <div class="tile talking" data-tile="ai"><div class="avatar">AI</div><label>Interviewer</label></div>
+          <div class="tile" data-tile="me"><div class="me"></div><label>You</label></div>
+        </div>
+        <div class="captions" data-captions><b>Interviewer:</b> How does the home timeline get built when a user follows 5,000 accounts?</div>
+        <div class="dock">
+          <span class="timer" data-timer>14:02</span>
+          <button class="round" aria-label="Mute">🎙</button>
+          <button class="ptt" aria-pressed="false" data-ptt>Hold Space to talk</button>
+          <button class="round" aria-label="Hint" data-hint>?</button>
+          <button class="round end">End interview</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- OPTION 3 -->
+  <section class="variant" data-demo>
+    <header><h2>Option 3: Coached practice</h2>
+      <ul><li>Three columns: problem brief and a live rubric on the left, your screen in the middle, the transcript on the right.</li>
+      <li>The rubric ticks off as you cover topics, and a yellow nudge appears when you skip something (e.g. "No numbers yet").</li>
+      <li>Trade-off: the best for learning, but the rubric gives away what the interviewer wants, so it doesn't feel like a test.</li></ul></header>
+    <div class="stage">
+      <div class="coach">
+        <div class="col">
+          <h3>Problem</h3>
+          <p class="brief">Design Twitter: post tweets, follow users, home timeline. 300M DAU.</p>
+          <h3>Rubric</h3>
+          <ul class="rubric">
+            <li><span class="y">✓</span>Functional requirements</li>
+            <li><span class="y">✓</span>Write path</li>
+            <li><span class="n">○</span>Capacity estimate</li>
+            <li><span class="n">○</span>Fan-out strategy</li>
+            <li><span class="n">○</span>Caching</li>
+            <li><span class="n">○</span>Celebrity problem</li>
+          </ul>
+          <div class="nudge" data-nudge>⚠ No numbers yet. Interviewers expect a rough estimate of QPS and storage.</div>
+        </div>
+        <div class="center">
+          <div class="phases" data-phases><span class="done">Requirements</span><span class="now">High level</span><span>Deep dive</span><span>Wrap-up</span></div>
+          <div class="screen"><svg viewBox="0 0 300 160" fill="none" stroke="#475569" stroke-width="2"><rect x="10" y="60" width="60" height="36" rx="4"/><rect x="120" y="20" width="60" height="36" rx="4"/><rect x="120" y="104" width="60" height="36" rx="4"/><rect x="230" y="60" width="60" height="36" rx="4"/><path d="M70 78h50M180 38l50 40M180 122l50-44"/></svg><div class="pip"></div></div>
+          <div class="bar"><button class="ptt" aria-pressed="false" data-ptt>Hold Space to talk</button><button class="btn" data-hint>Hint</button><button class="btn" data-next>Next phase</button><span class="timer" data-timer style="margin-left:auto">14:02</span></div>
+        </div>
+        <div class="col">
+          <h3><span class="wave" data-wave="ai" style="color:var(--accent)"><i></i><i></i><i></i><i></i><i></i><i></i></span> Transcript</h3>
+          <div class="log" data-log>
+            <div class="msg ai"><span class="who">Interviewer</span><span class="body">Walk me through the write path for posting a tweet.</span></div>
+            <div class="msg me"><span class="who">You</span><span class="body">The client hits the tweet service, which writes to the tweets table…</span></div>
+            <div class="msg ai"><span class="who">Interviewer</span><span class="body">How does the home timeline get built when a user follows 5,000 accounts?</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- OPTION 4 -->
+  <section class="variant" data-demo>
+    <header><h2>Option 4: Voice first</h2>
+      <ul><li>One large orb that pulses blue when the interviewer speaks and green when you do. The current question is in big type, with your live words below it.</li>
+      <li>Your screen recording runs as a small thumbnail. Built for behavioural rounds and talking through designs out loud.</li>
+      <li>Trade-off: the calmest and most focused, but bad for whiteboarding because the diagram is tiny.</li></ul></header>
+    <div class="stage">
+      <div class="voice">
+        <div class="orb" data-orb></div>
+        <p class="q">How does the home timeline get built when a user follows 5,000 accounts?</p>
+        <div class="you" data-you></div>
+        <div class="row"><button class="ptt" aria-pressed="false" data-ptt>Hold Space to talk</button><button class="btn" data-hint>Hint</button><button class="btn danger">End</button></div>
+        <div class="mini"><div class="screen"><svg viewBox="0 0 300 160" fill="none" stroke="#475569" stroke-width="3"><rect x="10" y="60" width="60" height="36" rx="4"/><rect x="120" y="20" width="60" height="36" rx="4"/><rect x="230" y="60" width="60" height="36" rx="4"/><path d="M70 78h50M180 38l50 40"/></svg></div><span>● Recording screen · <span class="timer" data-timer>14:02</span> · High-level design</span></div>
+      </div>
+    </div>
+  </section>
+
+  <p class="lede"><b style="color:var(--fg)">Pick: Option 1.</b> It reuses the Studio you already have, keeps every question readable when you mishear the voice, and the phase bar stops you burning 20 minutes on requirements.<br>
+  Option 2 is the most realistic, but captions alone lose context. Option 3 is good for learning, but the rubric gives away the answers. Option 4 hides the diagram, which is the point of a system design round.</p>
+</div>
+
+<script>
+const SAY = 'I would use a hybrid fan-out: push to followers on write for normal users, and pull at read time for celebrities, then merge and cache the timeline in Redis.';
+let secs = 14 * 60 + 2;
+setInterval(() => { secs++; document.querySelectorAll('[data-timer]').forEach(t => t.textContent = `${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`); }, 1000);
+
+document.querySelectorAll('[data-demo]').forEach(root => {
+  let talking = false, aiSpeaking = true, typed = 0, typer, liveMsg;
+  const waves = root.querySelectorAll('[data-wave] i');
+  const log = root.querySelector('[data-log]');
+  const orb = root.querySelector('[data-orb]');
+  const who = root.querySelector('[data-who]');
+  const caps = root.querySelector('[data-captions]');
+  const you = root.querySelector('[data-you]');
+  const tiles = { ai: root.querySelector('[data-tile="ai"]'), me: root.querySelector('[data-tile="me"]') };
+  setTimeout(() => { aiSpeaking = false; if (who) who.textContent = 'Waiting for your answer'; tiles.ai?.classList.remove('talking'); }, 3500);
+
+  setInterval(() => {
+    const active = aiSpeaking || talking;
+    waves.forEach(w => w.style.height = (active ? 4 + Math.random() * 18 : 4) + 'px');
+    if (orb) { const g = active ? 12 + Math.random() * 26 : 0; orb.style.boxShadow = `0 0 0 ${g}px rgba(96,165,250,.18)`; orb.style.transform = `scale(${active ? 1 + Math.random() * .05 : 1})`; }
+  }, 110);
+
+  const ptt = root.querySelector('[data-ptt]');
+  const down = () => {
+    if (talking) return;
+    talking = true; aiSpeaking = false; ptt.setAttribute('aria-pressed', 'true'); ptt.textContent = '● Listening… release to send';
+    orb?.classList.add('listening'); tiles.me?.classList.add('talking'); tiles.ai?.classList.remove('talking');
+    if (who) who.textContent = 'You are speaking';
+    if (log) { liveMsg = document.createElement('div'); liveMsg.className = 'msg me'; liveMsg.innerHTML = '<span class="who">You · now</span><span class="body live"></span>'; log.appendChild(liveMsg); }
+    typed = 0;
+    typer = setInterval(() => {
+      typed = Math.min(SAY.length, typed + 3);
+      const text = SAY.slice(0, typed);
+      if (liveMsg) { liveMsg.querySelector('.body').textContent = text; log.scrollTop = log.scrollHeight; }
+      if (caps) caps.innerHTML = `<b style="color:var(--good)">You:</b> ${text}`;
+      if (you) you.textContent = text;
+    }, 60);
+  };
+  const up = () => {
+    if (!talking) return;
+    talking = false; clearInterval(typer); ptt.setAttribute('aria-pressed', 'false'); ptt.textContent = 'Hold Space to talk';
+    orb?.classList.remove('listening'); tiles.me?.classList.remove('talking');
+    liveMsg?.querySelector('.body').classList.remove('live');
+    setTimeout(() => {
+      aiSpeaking = true; tiles.ai?.classList.add('talking');
+      const q = 'Good. How do you decide who counts as a celebrity, and what happens when someone crosses that line?';
+      if (who) who.textContent = 'Interviewer speaking';
+      if (log) { const m = document.createElement('div'); m.className = 'msg ai'; m.innerHTML = `<span class="who">Interviewer · now</span><span class="body">${q}</span>`; log.appendChild(m); log.scrollTop = log.scrollHeight; }
+      const pinned = root.querySelector('.now-q p, .q'); if (pinned) pinned.textContent = q;
+      if (caps) caps.innerHTML = `<b>Interviewer:</b> ${q}`;
+      setTimeout(() => { aiSpeaking = false; tiles.ai?.classList.remove('talking'); if (who) who.textContent = 'Waiting for your answer'; }, 3000);
+    }, 700);
+  };
+  ptt.addEventListener('pointerdown', down);
+  ptt.addEventListener('pointerup', up);
+  ptt.addEventListener('pointerleave', up);
+  ptt.addEventListener('keydown', e => { if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); down(); } });
+  ptt.addEventListener('keyup', e => { if (e.code === 'Space' || e.code === 'Enter') up(); });
+
+  root.querySelector('[data-hint]')?.addEventListener('click', () => {
+    const h = 'Hint: think about what happens to write cost when one account has 50 million followers.';
+    if (log) { const m = document.createElement('div'); m.className = 'msg ai'; m.innerHTML = `<span class="who" style="color:var(--warn)">Hint</span><span class="body">${h}</span>`; log.appendChild(m); log.scrollTop = log.scrollHeight; }
+    if (caps) caps.innerHTML = `<b style="color:var(--warn)">Hint:</b> ${h}`;
+    if (you) you.textContent = h;
+  });
+  root.querySelector('[data-next]')?.addEventListener('click', () => {
+    const spans = [...root.querySelectorAll('[data-phases] span')];
+    const i = spans.findIndex(s => s.classList.contains('now'));
+    if (i < 0 || i === spans.length - 1) return;
+    spans[i].className = 'done'; spans[i + 1].className = 'now';
+  });
+});
+</script>
+</body>
+</html>
