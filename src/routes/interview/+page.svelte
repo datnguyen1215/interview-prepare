@@ -14,7 +14,7 @@
 	let plan = $state.raw<Plan>();
 	let screen = $state.raw<MediaStream>();
 	let startedAt = $state(0);
-	let session: ReturnType<typeof startRecording> | undefined;
+	let session = $state.raw<ReturnType<typeof startRecording>>();
 
 	const log = (...args: unknown[]) => console.log('[interview]', ...args);
 
@@ -54,9 +54,9 @@
 
 <svelte:head><title>Mock interview</title></svelte:head>
 
-{#if phase === 'call' && plan && screen && devices.camera}
+{#if phase === 'call' && plan && screen && session && devices.camera && devices.mic}
 	<main class="stage">
-		<Call {plan} {screen} camera={devices.camera} {startedAt} />
+		<Call {plan} {screen} camera={devices.camera} mic={devices.mic} recording={session} {startedAt} />
 	</main>
 {:else}
 	<main class="studio">
@@ -109,8 +109,11 @@
 		outline: 2px solid var(--accent);
 		outline-offset: 2px;
 	}
+	/* Width capped so the 16:9 call plus the 40px padding fits the viewport height. */
 	.stage {
 		padding: 20px;
+		max-width: calc((100vh - 40px) * 16 / 9 + 40px);
+		margin: 0 auto;
 	}
 	.studio {
 		max-width: 1100px;
