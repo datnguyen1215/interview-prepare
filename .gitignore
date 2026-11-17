@@ -22,3 +22,8 @@ Thumbs.db
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 /recordings
+
+# STT + tests
+stt/.venv/
+test-results/
+playwright-report/

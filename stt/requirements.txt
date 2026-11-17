@@ -1,0 +1,6 @@
+faster-whisper==1.2.1
+ctranslate2==4.9.0
+# faster-whisper 1.2.1 passes av.open(metadata_errors=...), which av 19 removed.
+av==15.1.0
+# ctranslate2 4.9.0 links cuBLAS 12 and is built without cuDNN.
+nvidia-cublas-cu12==12.9.3.13
