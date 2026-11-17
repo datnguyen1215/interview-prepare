@@ -1,5 +1,5 @@
 import { onMount } from 'svelte';
-import { findSystemDevice, NO_SYSTEM_INPUT, RAW_AUDIO, SYSTEM_SETUP } from './media.js';
+import { findCamera, findSystemDevice, NO_SYSTEM_INPUT, RAW_AUDIO, SYSTEM_SETUP } from './media.js';
 
 export type CheckName = 'camera' | 'microphone' | 'system' | 'screen';
 export type Check = { label: string; state: 'pending' | 'ok' | 'fail'; detail: string; level?: number; fix?: string };
@@ -62,8 +62,9 @@ export function useDevices() {
 		let frame = 0;
 		const ac = new AudioContext();
 		(async () => {
-			camera = await acquire('camera', () => navigator.mediaDevices.getUserMedia({ video: true }));
+			// Mic first: its grant unlocks device labels, so findCamera can skip the physical camera.
 			mic = await acquire('microphone', () => navigator.mediaDevices.getUserMedia({ audio: RAW_AUDIO }));
+			camera = await acquire('camera', findCamera);
 			system = await acquire('system', findSystemDevice);
 			if (checks.system.detail === NO_SYSTEM_INPUT) checks.system.fix = SYSTEM_SETUP;
 			const meters = [mic && meter(ac, mic, 'microphone'), system && meter(ac, system, 'system')].filter((m) => !!m);

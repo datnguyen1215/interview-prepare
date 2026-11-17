@@ -1,4 +1,5 @@
 export const SYSTEM_LABEL = /System_Audio/i;
+export const CAMERA_LABEL = /OBS Virtual Camera/i;
 export const SYSTEM_SETUP =
 	"pw-loopback -n system_audio_loopback --capture-props='stream.capture.sink=true node.passive=true node.name=system_audio_capture' --playback-props='media.class=Audio/Source node.name=system_audio node.description=System_Audio'";
 export const NO_SYSTEM_INPUT = 'No System_Audio input';
@@ -9,10 +10,22 @@ type Cleanup = (() => void)[];
 
 const log = (...args: unknown[]) => console.log('[media]', ...args);
 
+// Labels are empty until a getUserMedia grant, so call after one succeeds.
+async function findInput(kind: MediaDeviceKind, label: RegExp): Promise<MediaDeviceInfo | undefined> {
+	const inputs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === kind);
+	log(kind, 'devices', inputs.map((d) => d.label));
+	return inputs.find((d) => label.test(d.label));
+}
+
+// OBS holds the physical camera, so take its virtual camera when it is running.
+export async function findCamera(): Promise<MediaStream> {
+	const device = await findInput('videoinput', CAMERA_LABEL);
+	log(device ? `camera: using "${device.label}"` : 'camera: no OBS Virtual Camera, using default');
+	return navigator.mediaDevices.getUserMedia({ video: device ? { deviceId: { exact: device.deviceId } } : true });
+}
+
 export async function findSystemDevice(): Promise<MediaStream> {
-	const inputs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput');
-	log('audio inputs', inputs.map((d) => d.label));
-	const device = inputs.find((d) => SYSTEM_LABEL.test(d.label));
+	const device = await findInput('audioinput', SYSTEM_LABEL);
 	if (!device) throw new Error(NO_SYSTEM_INPUT);
 	return navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: device.deviceId }, ...RAW_AUDIO } });
 }
