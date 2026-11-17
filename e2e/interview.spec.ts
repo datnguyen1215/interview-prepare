@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import type { Page, Route } from '@playwright/test';
 import { test, expect, type RecordedRequest } from './fixtures';
 
@@ -71,17 +72,35 @@ function gate() {
 async function exposeDisplayStream(page: Page) {
 	await page.addInitScript(() => {
 		const original = navigator.mediaDevices.getDisplayMedia.bind(navigator.mediaDevices);
+		Object.assign(window, { displayCalls: 0 });
 		navigator.mediaDevices.getDisplayMedia = async (options) => {
 			const stream = await original(options);
-			Object.assign(window, { displayStream: stream });
+			const w = window as unknown as { displayStream: MediaStream; displayCalls: number };
+			w.displayCalls++;
+			w.displayStream = stream;
 			return stream;
 		};
 	});
 }
 
+const displayCalls = (page: Page) => page.evaluate(() => (window as unknown as { displayCalls: number }).displayCalls);
+const displayStates = (page: Page) =>
+	page.evaluate(() =>
+		(window as unknown as { displayStream: MediaStream }).displayStream.getTracks().map((t) => t.readyState)
+	);
+const screenRow = (page: Page) => page.locator('.dev', { hasText: 'Screen' });
+const shareButton = (page: Page) => page.getByRole('button', { name: 'Share screen' });
+
+async function shareScreen(page: Page) {
+	await shareButton(page).click();
+	await expect(screenRow(page).locator('.ok')).toHaveText('✓');
+	await expect(shareButton(page)).toBeHidden();
+}
+
 async function startCall(page: Page) {
-	await page.goto('/interview');
+	await page.goto('/');
 	await expectDevicesReady(page);
+	await shareScreen(page);
 	await page.getByLabel('Job post').fill(JOB_POST);
 	await page.getByRole('button', { name: '● Start interview' }).click();
 	await expect(page.locator('.captions')).toHaveText(`Interviewer: ${QUESTION}`);
@@ -117,8 +136,9 @@ async function expectDevicesReady(page: Page) {
 
 test('setup prepares questions and the call shows the first question', async ({ page }) => {
 	const calls = await stubInterview(page);
-	await page.goto('/interview');
+	await page.goto('/');
 	await expectDevicesReady(page);
+	await shareScreen(page);
 
 	const start = page.getByRole('button', { name: '● Start interview' });
 	await expect(start).toBeDisabled();
@@ -144,22 +164,68 @@ test('setup prepares questions and the call shows the first question', async ({ 
 	await expect(page.locator('.drawer .msg')).toHaveText([`Interviewer${QUESTION}`]);
 });
 
-test('plan failure shows the error on setup and stops the screen share', async ({ page }) => {
+test('Share screen is required before Start, and Start reuses that share', async ({ page }) => {
+	await exposeDisplayStream(page);
+	const calls = await stubInterview(page);
+	await page.goto('/');
+	await expectDevicesReady(page);
+	await page.getByLabel('Job post').fill(JOB_POST);
+
+	const start = page.getByRole('button', { name: '● Start interview' });
+	await expect(screenRow(page).locator('.pend')).toHaveText('○');
+	await expect(start).toBeDisabled();
+	await shareScreen(page);
+	await expect(screenRow(page).locator('small')).not.toBeEmpty();
+	await expect(start).toBeEnabled();
+
+	await start.click();
+	await expect(page.locator('.captions')).toHaveText(`Interviewer: ${QUESTION}`);
+	expect(calls.plan).toHaveLength(1);
+	expect(await displayCalls(page)).toBe(1);
+});
+
+test('stopping the share from the browser before Start resets the Screen row', async ({ page }) => {
+	await exposeDisplayStream(page);
+	await stubInterview(page);
+	await page.goto('/');
+	await expectDevicesReady(page);
+	await page.getByLabel('Job post').fill(JOB_POST);
+	await shareScreen(page);
+
+	await page.evaluate(() =>
+		(window as unknown as { displayStream: MediaStream }).displayStream.getVideoTracks()[0]?.dispatchEvent(new Event('ended'))
+	);
+	await expect(screenRow(page).locator('.pend')).toHaveText('○');
+	await expect(shareButton(page)).toBeVisible();
+	await expect(page.getByRole('button', { name: '● Start interview' })).toBeDisabled();
+	expect(await displayStates(page)).toEqual(['ended']);
+});
+
+test('plan failure shows the error on setup and keeps the screen share', async ({ page }) => {
 	await exposeDisplayStream(page);
 	const message = 'plan failed: DEEPSEEK_API_KEY is not set; add it to .env';
 	await stubInterview(page, { plan: (route) => route.fulfill({ status: 502, json: { message } }) });
-	await page.goto('/interview');
+	await page.goto('/');
 	await expectDevicesReady(page);
+	await shareScreen(page);
 
 	await page.getByLabel('Job post').fill(JOB_POST);
 	await page.getByRole('button', { name: '● Start interview' }).click();
 
 	await expect(page.locator('.status')).toHaveText(`Error: ${message}`);
 	await expect(page.getByRole('button', { name: '● Start interview' })).toBeEnabled();
-	const states = await page.evaluate(() =>
-		(window as unknown as { displayStream: MediaStream }).displayStream.getTracks().map((t) => t.readyState)
-	);
-	expect(states).toEqual(['ended']);
+	await expect(screenRow(page).locator('.ok')).toHaveText('✓');
+	expect(await displayStates(page)).toEqual(['live']);
+	expect(await displayCalls(page)).toBe(1);
+});
+
+test('the recordings library shows under the setup panel', async ({ page }) => {
+	// Read-only look at the real dir; the page lists whatever is there.
+	const count = fs.readdirSync('recordings').filter((f) => /^[\w-]+\.webm$/.test(f)).length;
+	await page.goto('/');
+	await expect(page.locator('.side')).toBeVisible();
+	await expect(page.locator('.lib')).toBeAttached();
+	await expect(page.locator('.lib .card')).toHaveCount(count);
 });
 
 test('holding Space records a clip, transcribes it and asks the next turn', async ({ page }) => {
@@ -215,7 +281,6 @@ test('Space with focus on End interview does not end the call', async ({ page, r
 	await endButton(page).focus();
 	await page.keyboard.press('Space');
 	await page.waitForTimeout(500);
-	await expect(page).toHaveURL(/\/interview$/);
 	await expect(endButton(page)).toBeEnabled();
 	expect(recordings).toEqual([]);
 });
@@ -253,7 +318,12 @@ test('End uploads the recording and its transcript, then returns to the library'
 	await answerOnce(page, calls);
 	await expect(page.locator('.captions')).toHaveText(`Interviewer: ${FOLLOW_UP}`);
 
+	const reload = page.waitForRequest((r) => new URL(r.url()).pathname === '/__data.json');
 	await endButton(page).click();
+	await reload;
+	await expect(page.locator('.lib')).toBeAttached();
+	await expect(screenRow(page).locator('.pend')).toHaveText('○');
+	await expect(shareButton(page)).toBeVisible();
 	await expect(page).toHaveURL(/\/$/);
 	const [upload] = uploads(recordings);
 	expect(uploads(recordings)).toHaveLength(1);
@@ -281,7 +351,7 @@ test('End during a pending turn waits for it and drops the reply', async ({ page
 	expect(calls.events).not.toContain('speech:DELETE');
 	slow.open();
 
-	await expect(page).toHaveURL(/\/$/);
+	await expect(page.locator('.lib')).toBeAttached();
 	expect(calls.events.indexOf('speech:DELETE')).toBeGreaterThan(calls.events.lastIndexOf('turn:next'));
 	const lines = transcriptPosts(recordings)[0]?.body?.toString().split('\n') ?? [];
 	expect(lines.map((l) => l.replace(/^\[\d+:\d\d\] /, ''))).toEqual([`Interviewer: ${QUESTION}`, `You: ${ANSWER}`]);
@@ -301,11 +371,10 @@ test('a failed transcript save shows Retry save, which retries without re-upload
 	await expect(page.locator('.captions')).toContainText('Error: disk full');
 	const retry = page.getByRole('button', { name: 'Retry save' });
 	await expect(retry).toBeVisible();
-	await expect(page).toHaveURL(/\/interview$/);
 	await expect(endButton(page)).toBeDisabled();
 
 	await retry.click();
-	await expect(page).toHaveURL(/\/$/);
+	await expect(page.locator('.lib')).toBeAttached();
 	expect(attempts).toBe(2);
 	expect(uploads(recordings)).toHaveLength(1);
 	expect(transcriptPosts(recordings)).toHaveLength(1);
@@ -326,7 +395,7 @@ test('End twice during a pending turn uploads once', async ({ page, recordings }
 	);
 	slow.open();
 
-	await expect(page).toHaveURL(/\/$/);
+	await expect(page.locator('.lib')).toBeAttached();
 	expect(uploads(recordings)).toHaveLength(1);
 	expect(transcriptPosts(recordings)).toHaveLength(1);
 });

@@ -66,8 +66,7 @@ export function mixAudio(sources: MediaStream[], cleanup: Cleanup): MediaStreamT
 
 export type Sources = { screen: MediaStream; camera: MediaStream; mic: MediaStream; system: MediaStream };
 
-// `stream` is the composited output, exposed so the page can preview what is being recorded.
-export function startRecording({ screen, camera, mic, system }: Sources): { stream: MediaStream; stop(): Promise<Blob> } {
+export function startRecording({ screen, camera, mic, system }: Sources): { stop(): Promise<Blob> } {
 	const cleanup: Cleanup = [];
 	const stream = new MediaStream([composite(screen, camera, cleanup), mixAudio([mic, system], cleanup)]);
 	const chunks: Blob[] = [];
@@ -92,7 +91,7 @@ export function startRecording({ screen, camera, mic, system }: Sources): { stre
 		return done;
 	}
 
-	return { stream, stop };
+	return { stop };
 }
 
 export async function uploadRecording(blob: Blob, title: string, duration: number): Promise<string> {

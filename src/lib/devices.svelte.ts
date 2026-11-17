@@ -4,7 +4,7 @@ import { findSystemDevice, NO_SYSTEM_INPUT, RAW_AUDIO, SYSTEM_SETUP } from './me
 export type CheckName = 'camera' | 'microphone' | 'system' | 'screen';
 export type Check = { label: string; state: 'pending' | 'ok' | 'fail'; detail: string; level?: number; fix?: string };
 
-export const SCREEN_PENDING = 'Asked when you start';
+export const SCREEN_PENDING = 'Not shared';
 
 const log = (...args: unknown[]) => console.log('[devices]', ...args);
 const describe = (s: MediaStream) =>

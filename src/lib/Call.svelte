@@ -25,7 +25,6 @@
 
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import { uploadRecording, type startRecording } from '#lib/media.js';
 	import type { Plan } from '#lib/server/interviewer.js';
 	import { clock, formatTranscript, whoLabel, type TimedEntry } from '#lib/transcript.js';
@@ -36,7 +35,8 @@
 		camera,
 		mic,
 		recording,
-		startedAt
+		startedAt,
+		onsaved
 	}: {
 		plan: Plan;
 		screen: MediaStream;
@@ -44,6 +44,7 @@
 		mic: MediaStream;
 		recording: ReturnType<typeof startRecording>;
 		startedAt: number;
+		onsaved: () => Promise<void>;
 	} = $props();
 
 	type Caption = { who?: 'Interviewer' | 'You' | 'Hint' | 'Error'; text: string };
@@ -301,7 +302,7 @@
 			return;
 		}
 		log('saved', { name: saved.name });
-		await goto('/');
+		await onsaved();
 	}
 </script>
 
