@@ -1,56 +1,27 @@
-# sv
+# Mock Interview
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Practice job interviews out loud. Paste a job post and an AI interviewer runs a video-call style interview with you, then saves the recording so you can watch yourself back.
 
-## Creating a project
+![In-call view: shared whiteboard, interviewer tile talking, push-to-talk dock](docs/screenshots/call.png)
 
-If you're seeing this, you've probably already done this step. Congrats!
+## What it does
 
-```sh
-# create a new project
-npx sv create my-app
-```
+- Reads the job post and prepares questions that fit the role and level.
+- Daniel, the interviewer, asks them out loud and follows up on your answers.
+- You answer by holding Space. Ask for a hint any time.
+- Records your screen, camera and both voices, with a written transcript.
+- Keeps a library of past interviews to replay.
+- Runs on your own computer. No scores, no grades, just practice.
 
-To recreate this project with the same configuration:
+| Before the interview | During: transcript and hints |
+| --- | --- |
+| ![Setup screen with device checks, screen preview, job post and recordings library](docs/screenshots/setup.png) | ![Call with transcript drawer open and a hint shown](docs/screenshots/transcript.png) |
 
-```sh
-# recreate this project
-npx sv@1.4.0 create --template minimal --types ts --install npm .
-```
+## Quick start
 
-## Adding features
+1. `npm install`, then copy `.env.example` to `.env` and add your DeepSeek API key.
+2. Start the voice services: speech-to-text (`stt/run.sh`) and a Kokoro text-to-speech server.
+3. `npm run dev` and open the page in Chrome.
+4. Wait for the checks to turn green, share your screen, paste a job post, and click **Start interview**.
 
-Add features to your project with `sv add`:
-
-```sh
-npx sv add
-```
-
-For example, to add Tailwind CSS:
-
-```sh
-npx sv add tailwindcss
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+Full setup: [docs/setup.md](docs/setup.md). How it works: [docs/architecture.md](docs/architecture.md).
