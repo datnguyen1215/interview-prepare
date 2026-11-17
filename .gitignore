@@ -27,3 +27,6 @@ vite.config.ts.timestamp-*
 stt/.venv/
 test-results/
 playwright-report/
+
+# Voice detection assets, copied from node_modules by npm run vad-assets
+/static/vad

@@ -4,7 +4,7 @@
 flowchart LR
     subgraph Browser
         UI[Svelte page]
-        PTT[Push-to-talk clip<br/>MediaRecorder]
+        VAD[Voice detection<br/>Silero VAD]
     end
     subgraph Server[SvelteKit server]
         PLAN["/api/interview/plan"]
@@ -22,11 +22,13 @@ flowchart LR
     UI -- history --> TURN --> DS
     TURN -- say / stop --> KOK
     UI -- poll speaking --> SPEECH --> KOK
-    PTT -- audio/webm --> STT --> WH
+    VAD -- audio/wav --> STT --> WH
     UI -- webm + transcript --> REC --> FS
 ```
 
 Each turn: the browser posts the conversation so far to `/api/interview/turn`, the server asks DeepSeek for Daniel's next line, tells Kokoro to speak it, and returns the text. The browser polls `/api/interview/speech` to light up Daniel's tile while he talks.
+
+Turns are hands-free. A voice activity detector (Silero, via `@ricky0123/vad-web`) listens to the mic; after 1.5 s of silence the utterance is sent as WAV to `/api/interview/transcribe`, then `/api/interview/turn`. Speech shorter than 300 ms is ignored. Speaking while Daniel talks stops him (`DELETE /api/interview/speech`). Speech while a reply is in flight is dropped. Its model, worklet and ONNX runtime files are copied from `node_modules` to `static/vad/` by `npm run vad-assets`, which `npm install` runs.
 
 The recording is built entirely in the browser:
 
@@ -51,6 +53,7 @@ The canvas is redrawn from a Web Worker timer so recording keeps going when the 
 - faster-whisper (`large-v3-turbo`) on CUDA, served by a small Python HTTP server
 - Browser media APIs: `getDisplayMedia`, `getUserMedia`, Canvas `captureStream`, Web Audio, `MediaRecorder`
 - PipeWire loopback for system audio capture
+- Silero VAD in the browser via `@ricky0123/vad-web` (ONNX Runtime Web)
 - Vitest and Playwright
 
 ## Kokoro socket protocol
@@ -76,7 +79,8 @@ src/
     api/recordings/           upload recording and transcript
     recordings/[name]/        stream a recording (range requests) and its transcript
   lib/
-    Call.svelte               in-call view: tiles, dock, push-to-talk, hints, save
+    Call.svelte               in-call view: tiles, dock, turn-taking, hints, save
+    vad.ts                    voice activity detection on the mic (Silero via @ricky0123/vad-web)
     devices.svelte.ts         device checks and level meters
     media.ts                  canvas composite, audio mix, MediaRecorder, upload
     transcript.ts             transcript formatting

@@ -28,6 +28,7 @@
 	import { uploadRecording, type startRecording } from '#lib/media.js';
 	import type { Plan } from '#lib/server/interviewer.js';
 	import { INTERVIEWER, clock, formatTranscript, whoLabel, type TimedEntry } from '#lib/transcript.js';
+	import { listen, type Voice } from '#lib/vad.js';
 
 	let {
 		plan,
@@ -49,14 +50,12 @@
 
 	type Caption = { who?: 'You' | 'Hint' | 'Error'; text: string };
 	type Speech = { speaking: boolean; queued: number };
-	type Clip = { recorder: MediaRecorder; chunks: Blob[]; t0: number; at: number };
 
 	const CAPTION_STYLE: Record<NonNullable<Caption['who']>, string> = {
 		You: 'color:var(--good)',
 		Hint: 'color:var(--warn)',
 		Error: 'color:var(--bad)'
 	};
-	const MIN_CLIP_MS = 300;
 
 	let elapsed = $state(0);
 	let caption = $state<Caption>();
@@ -70,8 +69,10 @@
 	let saveFailed = $state(false);
 	let inflight: Promise<void> = Promise.resolve();
 	let speechLoop = 0;
-	let clip: Clip | undefined;
-	let captionBeforeHold: Caption | undefined;
+	let voice: Voice | undefined;
+	let speechT0 = 0;
+	let speechAt = 0;
+	let captionBeforeSpeech: Caption | undefined;
 	let saved: { blob: Blob; duration: number; name?: string } | undefined;
 
 	const log = (...args: unknown[]) => console.log('[call]', ...args);
@@ -85,13 +86,31 @@
 		const timer = setInterval(() => (elapsed = Math.floor((Date.now() - startedAt) / 1000)), 500);
 		screen.getVideoTracks()[0].onended = () => end('screen share ended by browser');
 		run('first turn', () => next(performance.now()));
+		void startVoice();
 		return () => {
 			log('unmounted', { elapsed, entries: entries.length });
 			ended = true;
 			speechLoop++;
 			clearInterval(timer);
+			voice?.destroy().catch((e) => console.error('[call] voice detection destroy failed', e));
 		};
 	});
+
+	async function startVoice() {
+		let v: Voice;
+		try {
+			v = await listen(mic, { onStart: speechStart, onRealStart: speechConfirmed, onMisfire: misfire, onEnd: speechEnd });
+		} catch (e) {
+			return showError('voice detection', e);
+		}
+		if (ended) {
+			log('voice detection ready after End; destroying');
+			return void v.destroy().catch((e) => console.error('[call] voice detection destroy failed', e));
+		}
+		voice = v;
+		log('listening', { muted });
+		if (muted) await v.pause();
+	}
 
 	function showError(step: string, e: unknown) {
 		console.error('[call]', `${step} failed`, e);
@@ -154,60 +173,49 @@
 		log('speech stopped', { ms: since(t0) });
 	}
 
-	function press() {
-		if (youTalking || busy || ended) return log('press ignored', { youTalking, busy, ended });
-		const wasTalking = aiTalking;
-		log('push-to-talk down', { bargeIn: wasTalking });
+	function speechStart() {
+		if (ended || muted) return log('speech ignored', { ended, muted });
+		if (busy) return log('speech ignored: turn in flight');
+		log('vad speech start', { aiTalking });
 		youTalking = true;
-		aiTalking = false;
-		captionBeforeHold = caption;
+		speechT0 = performance.now();
+		speechAt = elapsed;
+		captionBeforeSpeech = caption;
 		caption = { who: 'You', text: '…' };
-		if (wasTalking) {
-			speechLoop++;
-			stopSpeech().catch((e) => showError('stop speech', e));
-		}
-		const recorder = new MediaRecorder(mic, { mimeType: 'audio/webm;codecs=opus' });
-		clip = { recorder, chunks: [], t0: performance.now(), at: elapsed };
-		const { chunks } = clip;
-		recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-		recorder.onerror = (e) => console.error('[call] clip MediaRecorder error', e);
-		recorder.start();
 	}
 
-	function release() {
-		if (!youTalking || !clip) return;
-		const held = clip;
-		const ms = since(held.t0);
-		clip = undefined;
+	// Fires once speech outlasts MIN_SPEECH_MS, so a cough does not cut Daniel off.
+	function speechConfirmed() {
+		if (!youTalking || !aiTalking) return;
+		log('barge-in: stopping Daniel', { msSinceSpeechStart: since(speechT0) });
+		speechLoop++;
+		aiTalking = false;
+		stopSpeech().catch((e) => showError('stop speech', e));
+	}
+
+	function misfire() {
+		if (!youTalking) return;
+		log('vad misfire: too short, dropped', { ms: since(speechT0) });
 		youTalking = false;
-		if (ms < MIN_CLIP_MS) {
-			log('clip dropped: too short', { ms });
-			held.recorder.stop();
-			caption = captionBeforeHold;
-			return;
-		}
-		log('push-to-talk up', { recordMs: ms });
-		run('answer', () => answer(held));
+		caption = captionBeforeSpeech;
 	}
 
-	function stopClip(c: Clip): Promise<Blob> {
-		const done = new Promise<Blob>((resolve) => {
-			c.recorder.onstop = () => resolve(new Blob(c.chunks, { type: 'audio/webm' }));
-		});
-		c.recorder.stop();
-		return done;
+	function speechEnd(wav: Blob) {
+		if (!youTalking) return log('speech end dropped: its start was ignored', { bytes: wav.size });
+		youTalking = false;
+		log('vad speech end', { ms: since(speechT0), bytes: wav.size });
+		const at = speechAt;
+		run('answer', () => answer(wav, at));
 	}
 
-	async function answer(c: Clip) {
+	async function answer(wav: Blob, at: number) {
 		const t0 = performance.now();
-		const blob = await stopClip(c);
-		log('clip recorded', { bytes: blob.size, chunks: c.chunks.length });
 		let text: string;
 		try {
 			const res = await send('/api/interview/transcribe', {
 				method: 'POST',
-				headers: { 'content-type': 'audio/webm' },
-				body: blob
+				headers: { 'content-type': 'audio/wav' },
+				body: wav
 			});
 			({ text } = (await res.json()) as { text: string });
 		} catch (e) {
@@ -217,11 +225,11 @@
 		log('transcribe done', { ms: since(t0), chars: text.length });
 		if (ended) return log('transcript dropped after End', { chars: text.length });
 		if (!text.trim()) {
-			console.warn('[call] transcribe returned empty text; no turn', { bytes: blob.size });
-			caption = captionBeforeHold;
+			console.warn('[call] transcribe returned empty text; no turn', { bytes: wav.size });
+			caption = captionBeforeSpeech;
 			return;
 		}
-		entries.push({ who: 'you', text, at: c.at });
+		entries.push({ who: 'you', text, at });
 		caption = { who: 'You', text };
 		await next(t0);
 	}
@@ -248,28 +256,21 @@
 	function toggleMute() {
 		muted = !muted;
 		mic.getAudioTracks().forEach((t) => (t.enabled = !muted));
-		log('mic', muted ? 'muted' : 'unmuted');
-	}
-
-	function onKey(e: KeyboardEvent) {
-		if (e.code !== 'Space') return;
-		const t = e.target;
-		if (t instanceof HTMLElement && (t.matches('input, textarea') || t.isContentEditable)) return;
-		// Without this, Space clicks the focused button (End interview stays focused after a click).
-		e.preventDefault();
-		if (e.repeat) return;
-		if (e.type === 'keydown') press();
-		else release();
+		log('mic', muted ? 'muted' : 'unmuted', { voiceReady: !!voice });
+		if (muted && youTalking) {
+			log('discarding speech in progress: muted');
+			youTalking = false;
+			caption = captionBeforeSpeech;
+		}
+		(muted ? voice?.pause() : voice?.start())?.catch((e) => showError('voice detection', e));
 	}
 
 	async function end(reason: string) {
 		if (ended) return log('end ignored: already ended', { reason });
 		ended = true;
-		log('end', { reason, busy, holding: youTalking, entries: entries.length });
-		if (clip) {
-			log('discarding held clip');
-			clip.recorder.stop();
-			clip = undefined;
+		log('end', { reason, busy, speaking: youTalking, entries: entries.length });
+		if (youTalking) {
+			log('discarding speech in progress');
 			youTalking = false;
 		}
 		caption = { text: 'Saving...' };
@@ -305,8 +306,6 @@
 	}
 </script>
 
-<svelte:window onkeydowncapture={onKey} onkeyupcapture={onKey} />
-
 <div class="call">
 	<div class="main"><div class="screen"><video use:preview={screen} autoplay muted></video></div></div>
 	<button class="btn drawer-btn" onclick={() => (drawerOpen = !drawerOpen)}>☰ Transcript</button>
@@ -337,16 +336,9 @@
 	<div class="dock">
 		<span class="timer">{clock(elapsed)}</span>
 		<button class="round" aria-label="Mute" aria-pressed={muted} onclick={toggleMute}>🎙</button>
-		<button
-			class="ptt"
-			aria-pressed={youTalking}
-			disabled={busy}
-			onpointerdown={press}
-			onpointerup={release}
-			onpointerleave={release}
-		>
-			{youTalking ? '● Listening… release to send' : 'Hold Space to talk'}
-		</button>
+		<span class="listen" class:on={youTalking} role="status">
+			{muted ? 'Muted' : youTalking ? 'Hearing you…' : busy ? 'Thinking…' : 'Listening'}
+		</span>
 		<button class="round" aria-label="Hint" disabled={busy} onclick={hint}>?</button>
 		<button class="round end" disabled={ended} onclick={() => end('End interview clicked')}>End interview</button>
 	</div>
@@ -481,7 +473,9 @@
 	.btn:hover {
 		border-color: var(--accent);
 	}
-	.ptt {
+	.listen {
+		display: inline-flex;
+		align-items: center;
 		min-height: 48px;
 		padding: 0 18px;
 		border-radius: 99px;
@@ -489,10 +483,8 @@
 		background: transparent;
 		color: var(--good);
 		font-weight: 700;
-		cursor: pointer;
-		user-select: none;
 	}
-	.ptt[aria-pressed='true'] {
+	.listen.on {
 		background: var(--good);
 		color: #0c0c0d;
 	}

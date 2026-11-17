@@ -7,7 +7,7 @@ export async function transcribe(body: ArrayBuffer): Promise<string> {
 	const t0 = Date.now();
 	let res: Response;
 	try {
-		res = await fetch(URL, { method: 'POST', headers: { 'content-type': 'audio/webm' }, body });
+		res = await fetch(URL, { method: 'POST', headers: { 'content-type': 'audio/wav' }, body });
 	} catch (e) {
 		const code = e instanceof Error && (e.cause as NodeJS.ErrnoException | undefined)?.code;
 		log('transcribe request error', { bytes: body.byteLength, ms: Date.now() - t0, code, error: String(e) });

@@ -51,7 +51,7 @@ Open the printed URL (default `http://localhost:5173`) in Chrome.
 1. Allow camera and microphone. Wait for Camera, Microphone and System sound to turn green.
 2. Click **Share screen** and pick the screen or window you will work in.
 3. Paste the job post and click **Start interview**. Daniel greets you and asks the first question.
-4. **Hold Space** to answer, release to send. Press `?` for a hint, the mic button to mute, **☰ Transcript** to read back the conversation.
+4. Just answer out loud. About 1.5 seconds of silence sends your answer; start talking while Daniel speaks to interrupt him. Press `?` for a hint, the mic button to mute (nothing is heard while muted), **☰ Transcript** to read back the conversation.
 5. Click **End interview**. The recording and transcript are saved and appear in the library.
 
 Recordings land in `./recordings/` as `<timestamp>_<title>_<seconds>s.webm` with a matching `.txt` transcript. The folder is git-ignored.
@@ -65,4 +65,4 @@ npx playwright install chromium   # once
 npm run test:e2e       # Playwright, starts its own dev server on port 5199
 ```
 
-The end-to-end tests use Chromium's fake camera and mic, a canvas stream as the screen share, and stub every `/api/interview/*` and `/api/recordings` call, so they need no API key, GPU, Kokoro or PipeWire, and never write to `recordings/`.
+The end-to-end tests use Chromium's fake camera and mic, a canvas stream as the screen share, a scripted stand-in for voice detection, and stub every `/api/interview/*` and `/api/recordings` call, so they need no API key, GPU, Kokoro or PipeWire, and never write to `recordings/`.

@@ -110,23 +110,31 @@ async function startCall(page: Page) {
 	await shareScreen(page);
 	await page.getByLabel('Job post').fill(JOB_POST);
 	await page.getByRole('button', { name: '● Start interview' }).click();
-	await expect(pill(page)).toBeEnabled();
+	await expect(pill(page)).toHaveText('Listening');
 	await expect(page.locator('.captions')).toHaveCount(0);
 }
 
-const pill = (page: Page) => page.locator('.ptt');
+const pill = (page: Page) => page.locator('.listen');
 const endButton = (page: Page) => page.getByRole('button', { name: 'End interview' });
+type Voice = { start(): void; confirm(): void; misfire(): void; end(): void; listening: boolean };
+const voice = (page: Page, event: 'start' | 'confirm' | 'misfire' | 'end') =>
+	page.evaluate((e) => (window as unknown as { voice: Voice }).voice[e](), event);
 
-async function holdSpace(page: Page, ms = 600) {
-	await page.keyboard.down('Space');
-	await page.waitForTimeout(ms);
-	await page.keyboard.up('Space');
+async function speakStart(page: Page) {
+	await expect.poll(() => page.evaluate(() => 'voice' in window)).toBe(true);
+	await voice(page, 'start');
 }
 
-// Waits for the interviewer to finish first, so the hold is not a barge-in.
+async function speak(page: Page) {
+	await speakStart(page);
+	await voice(page, 'confirm');
+	await voice(page, 'end');
+}
+
+// Waits for the interviewer to finish first, so the answer is not a barge-in.
 async function answerOnce(page: Page, calls: Calls) {
 	await expect(page.locator('.tile', { hasText: 'Daniel' })).not.toHaveClass(/talking/);
-	await holdSpace(page);
+	await speak(page);
 	await expect.poll(() => calls.turn.length).toBe(2);
 }
 
@@ -153,7 +161,7 @@ test('setup prepares questions and the call shows the first question', async ({ 
 	await expect(start).toBeEnabled();
 	await start.click();
 
-	await expect(pill(page)).toBeEnabled();
+	await expect(pill(page)).toHaveText('Listening');
 	await expect(page.locator('.captions')).toHaveCount(0);
 	expect(calls.plan).toEqual([{ jobPost: JOB_POST }]);
 	expect(calls.turn).toEqual([{ plan: PLAN, history: [], kind: 'next' }]);
@@ -187,7 +195,7 @@ test('Share screen is required before Start, and Start reuses that share', async
 	await expect(start).toBeEnabled();
 
 	await start.click();
-	await expect(pill(page)).toBeEnabled();
+	await expect(pill(page)).toHaveText('Listening');
 	await expect(page.locator('.captions')).toHaveCount(0);
 	expect(calls.plan).toHaveLength(1);
 	expect(await displayCalls(page)).toBe(1);
@@ -240,26 +248,26 @@ test('the recordings library shows under the setup panel', async ({ page }) => {
 	await expect(page.locator('.lib .card')).toHaveCount(count);
 });
 
-test('holding Space records a clip, transcribes it and asks the next turn', async ({ page }) => {
+test('speech is transcribed when it ends and asks the next turn', async ({ page }) => {
 	const slow = gate();
 	const calls = await stubInterview(page, { slowTurn: slow.opened });
 	await startCall(page);
 	const ai = page.locator('.tile', { hasText: 'Daniel' });
 	const you = page.locator('.tile', { hasText: 'You' });
-
-	await page.keyboard.down('Space');
-	await expect(pill(page)).toHaveAttribute('aria-pressed', 'true');
-	await expect(pill(page)).toHaveText('● Listening… release to send');
-	await expect(you).toHaveClass(/talking/);
 	await expect(ai).not.toHaveClass(/talking/);
-	await page.waitForTimeout(600);
-	await page.keyboard.up('Space');
 
-	await expect(pill(page)).toHaveAttribute('aria-pressed', 'false');
-	await expect(pill(page)).toHaveText('Hold Space to talk');
+	await speakStart(page);
+	await expect(pill(page)).toHaveClass(/on/);
+	await expect(pill(page)).toHaveText('Hearing you…');
+	await expect(you).toHaveClass(/talking/);
+	await voice(page, 'confirm');
+	await voice(page, 'end');
+
+	await expect(pill(page)).not.toHaveClass(/on/);
+	await expect(pill(page)).toHaveText('Thinking…');
 	await expect(page.locator('.captions')).toHaveText(`You: ${ANSWER}`);
 	expect(calls.transcribe).toHaveLength(1);
-	expect(calls.transcribe[0]?.type).toBe('audio/webm');
+	expect(calls.transcribe[0]?.type).toBe('audio/wav');
 	expect(calls.transcribe[0]?.bytes).toBeGreaterThan(0);
 	await expect.poll(() => calls.turn.length).toBe(2);
 	expect(calls.turn[1]).toEqual({
@@ -270,31 +278,49 @@ test('holding Space records a clip, transcribes it and asks the next turn', asyn
 		],
 		kind: 'next'
 	});
+	expect(calls.events).not.toContain('speech:DELETE');
 
 	slow.open();
 	await expect(page.locator('.captions')).toHaveCount(0);
+	await expect(pill(page)).toHaveText('Listening');
 });
 
-test('holding Space while the interviewer speaks stops the speech', async ({ page }) => {
+test('a blip while the interviewer speaks is ignored; real speech stops him', async ({ page }) => {
 	const calls = await stubInterview(page, { speakingPolls: Infinity });
 	await startCall(page);
 	const ai = page.locator('.tile', { hasText: 'Daniel' });
 	await expect(ai).toHaveClass(/talking/);
 
-	await page.keyboard.down('Space');
+	await speakStart(page);
+	await voice(page, 'misfire');
+	await expect(pill(page)).toHaveText('Listening');
+	await page.waitForTimeout(300);
+	expect(calls.events).not.toContain('speech:DELETE');
+	await expect(ai).toHaveClass(/talking/);
+
+	await voice(page, 'start');
+	await voice(page, 'confirm');
 	await expect.poll(() => calls.events).toContain('speech:DELETE');
 	await expect(ai).not.toHaveClass(/talking/);
-	await page.keyboard.up('Space');
+	await voice(page, 'end');
+	await expect.poll(() => calls.turn.length).toBe(2);
 });
 
-test('Space with focus on End interview does not end the call', async ({ page, recordings }) => {
-	await stubInterview(page);
+test('muting pauses voice detection and nothing is captured', async ({ page }) => {
+	const calls = await stubInterview(page);
 	await startCall(page);
-	await endButton(page).focus();
-	await page.keyboard.press('Space');
-	await page.waitForTimeout(500);
-	await expect(endButton(page)).toBeEnabled();
-	expect(recordings).toEqual([]);
+	const mute = page.getByRole('button', { name: 'Mute' });
+	await mute.click();
+	await expect(mute).toHaveAttribute('aria-pressed', 'true');
+	await expect(pill(page)).toHaveText('Muted');
+	expect(await page.evaluate(() => (window as unknown as { voice: Voice }).voice.listening)).toBe(false);
+	await speak(page);
+	await page.waitForTimeout(300);
+	expect(calls.transcribe).toHaveLength(0);
+
+	await mute.click();
+	await expect(pill(page)).toHaveText('Listening');
+	await answerOnce(page, calls);
 });
 
 test('hint shows a Hint caption and is not spoken', async ({ page }) => {
@@ -307,16 +333,16 @@ test('hint shows a Hint caption and is not spoken', async ({ page }) => {
 	await expect(page.locator('.drawer .msg')).toHaveText([`Daniel${QUESTION}`, `Hint${HINT}`]);
 });
 
-test('a second Space press while a turn is pending sends nothing', async ({ page }) => {
+test('speech while a turn is pending sends nothing', async ({ page }) => {
 	const slow = gate();
 	const calls = await stubInterview(page, { slowTurn: slow.opened });
 	await startCall(page);
 	await answerOnce(page, calls);
-	await expect(pill(page)).toBeDisabled();
+	await expect(pill(page)).toHaveText('Thinking…');
 	await expect(page.getByRole('button', { name: 'Hint' })).toBeDisabled();
 
-	await holdSpace(page);
-	await expect(pill(page)).toHaveAttribute('aria-pressed', 'false');
+	await speak(page);
+	await expect(pill(page)).not.toHaveClass(/on/);
 	slow.open();
 	await expect(page.locator('.captions')).toHaveCount(0);
 	await page.waitForTimeout(300);
@@ -416,9 +442,9 @@ test('a transcribe failure shows an Error caption and the call continues', async
 	const message = 'transcribe failed: STT server not reachable at 127.0.0.1:8790; start it with stt/run.sh';
 	const calls = await stubInterview(page, { transcribe: (route) => route.fulfill({ status: 502, json: { message } }) });
 	await startCall(page);
-	await holdSpace(page);
+	await speak(page);
 	await expect(page.locator('.captions')).toHaveText(`Error: ${message}`);
-	await expect(pill(page)).toBeEnabled();
+	await expect(pill(page)).toHaveText('Listening');
 	expect(calls.turn).toHaveLength(1);
 });
 

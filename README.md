@@ -2,13 +2,13 @@
 
 Practice job interviews out loud. Paste a job post and an AI interviewer runs a video-call style interview with you, then saves the recording so you can watch yourself back.
 
-![In-call view: shared whiteboard, interviewer tile talking, push-to-talk dock](docs/screenshots/call.png)
+![In-call view: shared whiteboard, interviewer tile talking, listening dock](docs/screenshots/call.png)
 
 ## What it does
 
 - Reads the job post and prepares questions that fit the role and level.
 - Daniel, the interviewer, asks them out loud and follows up on your answers.
-- You answer by holding Space. Ask for a hint any time.
+- Just talk. Daniel waits until you finish, and you can cut in while he speaks. Ask for a hint any time.
 - Records your screen, camera and both voices, with a written transcript.
 - Keeps a library of past interviews to replay.
 - Runs on your own computer. No scores, no grades, just practice.

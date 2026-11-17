@@ -24,12 +24,34 @@ function fakeMedia() {
 	};
 }
 
+// Replaces src/lib/vad.ts so tests drive speech through window.voice instead of real audio.
+const FAKE_VAD = `
+export async function listen(mic, h) {
+	let listening = true;
+	const when = (fn) => () => listening && fn();
+	window.voice = {
+		start: when(h.onStart),
+		confirm: when(h.onRealStart),
+		misfire: when(h.onMisfire),
+		end: when(() => h.onEnd(new Blob([new Uint8Array(2048)], { type: 'audio/wav' }))),
+		get listening() { return listening; }
+	};
+	return {
+		start: async () => void (listening = true),
+		pause: async () => void (listening = false),
+		destroy: async () => void (listening = false)
+	};
+}`;
+
 // Auto fixture: every test stubs the recordings API so the real recordings/ dir is never written.
 export const test = base.extend<{ recordings: RecordedRequest[] }>({
 	recordings: [
 		async ({ page }, use) => {
 			const requests: RecordedRequest[] = [];
 			await page.addInitScript(fakeMedia);
+			await page.route(/\/src\/lib\/vad\.ts(\?|$)/, (route) =>
+				route.fulfill({ contentType: 'text/javascript', body: FAKE_VAD })
+			);
 			// Pathname match: globs like '**/api/recordings' miss the upload's ?title=&duration= query.
 			const isRecordingsApi = (url: URL) => /^\/api\/recordings(\/|$)/.test(url.pathname);
 			await page.route(isRecordingsApi, (route) => {

@@ -11,7 +11,7 @@ describe('transcribe', () => {
 		expect(await transcribe(body)).toBe('hello world');
 		const [url, init] = fetch.mock.calls[0];
 		expect(url).toBe('http://127.0.0.1:8790/transcribe');
-		expect(init).toMatchObject({ method: 'POST', body, headers: { 'content-type': 'audio/webm' } });
+		expect(init).toMatchObject({ method: 'POST', body, headers: { 'content-type': 'audio/wav' } });
 	});
 
 	it('throws the start hint when the server refuses the connection', async () => {
