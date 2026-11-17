@@ -47,12 +47,11 @@
 		onsaved: () => Promise<void>;
 	} = $props();
 
-	type Caption = { who?: typeof INTERVIEWER | 'You' | 'Hint' | 'Error'; text: string };
+	type Caption = { who?: 'You' | 'Hint' | 'Error'; text: string };
 	type Speech = { speaking: boolean; queued: number };
 	type Clip = { recorder: MediaRecorder; chunks: Blob[]; t0: number; at: number };
 
-	const CAPTION_STYLE: Record<NonNullable<Caption['who']>, string | undefined> = {
-		[INTERVIEWER]: undefined,
+	const CAPTION_STYLE: Record<NonNullable<Caption['who']>, string> = {
 		You: 'color:var(--good)',
 		Hint: 'color:var(--warn)',
 		Error: 'color:var(--bad)'
@@ -122,7 +121,7 @@
 		log('turn done', { ms: since(tTurn), chars: text.length });
 		if (ended) return log('turn reply dropped after End', { chars: text.length });
 		entries.push({ who: 'interviewer', text, at: elapsed });
-		caption = { who: INTERVIEWER, text };
+		caption = undefined;
 		void waitForSpeech(t0);
 	}
 

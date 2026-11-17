@@ -110,8 +110,8 @@ async function startCall(page: Page) {
 	await shareScreen(page);
 	await page.getByLabel('Job post').fill(JOB_POST);
 	await page.getByRole('button', { name: '● Start interview' }).click();
-	await expect(page.locator('.captions')).toHaveText(`Daniel: ${QUESTION}`);
 	await expect(pill(page)).toBeEnabled();
+	await expect(page.locator('.captions')).toHaveCount(0);
 }
 
 const pill = (page: Page) => page.locator('.ptt');
@@ -153,7 +153,8 @@ test('setup prepares questions and the call shows the first question', async ({ 
 	await expect(start).toBeEnabled();
 	await start.click();
 
-	await expect(page.locator('.captions')).toHaveText(`Daniel: ${QUESTION}`);
+	await expect(pill(page)).toBeEnabled();
+	await expect(page.locator('.captions')).toHaveCount(0);
 	expect(calls.plan).toEqual([{ jobPost: JOB_POST }]);
 	expect(calls.turn).toEqual([{ plan: PLAN, history: [], kind: 'next' }]);
 
@@ -186,7 +187,8 @@ test('Share screen is required before Start, and Start reuses that share', async
 	await expect(start).toBeEnabled();
 
 	await start.click();
-	await expect(page.locator('.captions')).toHaveText(`Daniel: ${QUESTION}`);
+	await expect(pill(page)).toBeEnabled();
+	await expect(page.locator('.captions')).toHaveCount(0);
 	expect(calls.plan).toHaveLength(1);
 	expect(await displayCalls(page)).toBe(1);
 });
@@ -270,7 +272,7 @@ test('holding Space records a clip, transcribes it and asks the next turn', asyn
 	});
 
 	slow.open();
-	await expect(page.locator('.captions')).toHaveText(`Daniel: ${FOLLOW_UP}`);
+	await expect(page.locator('.captions')).toHaveCount(0);
 });
 
 test('holding Space while the interviewer speaks stops the speech', async ({ page }) => {
@@ -316,7 +318,7 @@ test('a second Space press while a turn is pending sends nothing', async ({ page
 	await holdSpace(page);
 	await expect(pill(page)).toHaveAttribute('aria-pressed', 'false');
 	slow.open();
-	await expect(page.locator('.captions')).toHaveText(`Daniel: ${FOLLOW_UP}`);
+	await expect(page.locator('.captions')).toHaveCount(0);
 	await page.waitForTimeout(300);
 	expect(calls.transcribe).toHaveLength(1);
 	expect(calls.turn).toHaveLength(2);
@@ -326,7 +328,7 @@ test('End uploads the recording and its transcript, then returns to the library'
 	const calls = await stubInterview(page);
 	await startCall(page);
 	await answerOnce(page, calls);
-	await expect(page.locator('.captions')).toHaveText(`Daniel: ${FOLLOW_UP}`);
+	await expect(page.locator('.captions')).toHaveCount(0);
 
 	const reload = page.waitForRequest((r) => new URL(r.url()).pathname === '/__data.json');
 	await endButton(page).click();
