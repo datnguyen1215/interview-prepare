@@ -46,7 +46,11 @@
 				<div class="meta">
 					<div>
 						<b>{r.title}</b>
-						<small>{formatDate(r.created)} · {Math.max(1, Math.round(r.size / 1e6))} MB</small>
+						<small>{formatDate(r.created)} · {Math.max(1, Math.round(r.size / 1e6))} MB{#if r.transcript}{' · '}<a
+								href="/recordings/{r.name}/transcript"
+								target="_blank">Transcript</a
+							>{/if}</small
+						>
 					</div>
 					<form
 						method="POST"
@@ -164,6 +168,9 @@
 	.meta small {
 		color: var(--muted);
 		font-size: 12px;
+	}
+	.meta small a {
+		color: var(--muted);
 	}
 	.icon-btn {
 		min-width: 44px;

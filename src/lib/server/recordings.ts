@@ -9,7 +9,7 @@ const NAME_RE = /^[\w-]+\.webm$/;
 
 fs.mkdirSync(DIR, { recursive: true });
 
-export type Recording = { name: string; title: string; duration: number | null; size: number; created: number };
+export type Recording = { name: string; title: string; duration: number | null; size: number; created: number; transcript: boolean };
 
 // Names look like <iso-timestamp>_<title>[_<seconds>s].webm
 const PARTS_RE = /^[\dTZ-]+?Z_(.+?)(?:_(\d+)s)?\.webm$/;
@@ -20,6 +20,8 @@ function parseName(name: string): Pick<Recording, 'title' | 'duration'> {
 	return { title: m[1].replace(/_/g, ' '), duration: m[2] ? Number(m[2]) : null };
 }
 
+const sidecarOf = (file: string) => file.replace(/\.webm$/, '.txt');
+
 const log = (...args: unknown[]) => console.log(new Date().toISOString(), '[recordings]', ...args);
 
 export function listRecordings(): Recording[] {
@@ -28,7 +30,8 @@ export function listRecordings(): Recording[] {
 		.filter((f) => NAME_RE.test(f))
 		.map((name) => {
 			const stat = fs.statSync(path.join(DIR, name));
-			return { name, ...parseName(name), size: stat.size, created: stat.mtimeMs };
+			const transcript = fs.existsSync(sidecarOf(path.join(DIR, name)));
+			return { name, ...parseName(name), size: stat.size, created: stat.mtimeMs, transcript };
 		})
 		.sort((a, b) => b.created - a.created);
 	log('list', items.length, 'recordings');
@@ -57,6 +60,20 @@ export async function saveRecording(
 }
 
 export function deleteRecording(name: string): void {
-	fs.unlinkSync(recordingPath(name));
-	log('deleted', name);
+	const file = recordingPath(name);
+	fs.unlinkSync(file);
+	fs.rmSync(sidecarOf(file), { force: true });
+	log('deleted', name, 'and its transcript if any');
+}
+
+export function saveTranscript(name: string, text: string): void {
+	const file = sidecarOf(recordingPath(name));
+	fs.writeFileSync(file, text);
+	log('transcript saved', path.basename(file), text.length, 'chars');
+}
+
+export function transcriptPath(name: string): string {
+	const file = sidecarOf(recordingPath(name));
+	if (!fs.existsSync(file)) error(404, `transcript not found: ${name}`);
+	return file;
 }
