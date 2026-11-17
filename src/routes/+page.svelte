@@ -105,7 +105,10 @@
 {:else}
 	<main class="studio">
 		<div class="screen">
-			<video use:preview={devices.camera} autoplay muted></video>
+			{#if screen}
+				<video use:preview={screen} autoplay muted></video>
+			{/if}
+			<video class:pip={!!screen} use:preview={devices.camera} autoplay muted></video>
 		</div>
 		<aside class="side">
 			<CheckRow check={devices.checks.camera} />
@@ -215,12 +218,22 @@
 		overflow: hidden;
 		background: linear-gradient(135deg, #1e293b, #0f172a);
 		border: 1px solid var(--line);
+		position: relative;
+		container-type: inline-size;
 	}
 	.screen video {
 		width: 100%;
 		height: 100%;
 		object-fit: contain;
 		display: block;
+	}
+	/* Mirrors composite() in media.ts: camera at 1/4 width, 16px inset on a 1920 frame. */
+	.screen .pip {
+		position: absolute;
+		width: 25%;
+		height: auto;
+		right: calc(100cqw * 16 / 1920);
+		bottom: calc(100cqw * 16 / 1920);
 	}
 	.side {
 		background: var(--panel);

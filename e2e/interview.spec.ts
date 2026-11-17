@@ -90,6 +90,13 @@ const displayStates = (page: Page) =>
 	);
 const screenRow = (page: Page) => page.locator('.dev', { hasText: 'Screen' });
 const shareButton = (page: Page) => page.getByRole('button', { name: 'Share screen' });
+// Playing videos in the setup preview, named by source.
+const previewSources = (page: Page) =>
+	page.locator('.studio .screen video').evaluateAll((els) =>
+		(els as HTMLVideoElement[])
+			.filter((v) => !v.paused && v.readyState >= 2)
+			.map((v) => (v.srcObject === (window as unknown as { displayStream: MediaStream }).displayStream ? 'screen' : 'camera'))
+	);
 
 async function shareScreen(page: Page) {
 	await shareButton(page).click();
@@ -190,12 +197,15 @@ test('stopping the share from the browser before Start resets the Screen row', a
 	await page.goto('/');
 	await expectDevicesReady(page);
 	await page.getByLabel('Job post').fill(JOB_POST);
+	await expect.poll(() => previewSources(page)).toEqual(['camera']);
 	await shareScreen(page);
+	await expect.poll(() => previewSources(page)).toEqual(['screen', 'camera']);
 
 	await page.evaluate(() =>
 		(window as unknown as { displayStream: MediaStream }).displayStream.getVideoTracks()[0]?.dispatchEvent(new Event('ended'))
 	);
 	await expect(screenRow(page).locator('.pend')).toHaveText('○');
+	await expect.poll(() => previewSources(page)).toEqual(['camera']);
 	await expect(shareButton(page)).toBeVisible();
 	await expect(page.getByRole('button', { name: '● Start interview' })).toBeDisabled();
 	expect(await displayStates(page)).toEqual(['ended']);
