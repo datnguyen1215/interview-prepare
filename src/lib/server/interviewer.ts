@@ -1,3 +1,4 @@
+import { INTERVIEWER } from '#lib/transcript.js';
 import { chat, type Message } from './deepseek.js';
 
 export type Plan = { role: string; level: string; stack: string[]; questions: string[] };
@@ -35,7 +36,7 @@ export async function preparePlan(jobPost: string): Promise<Plan> {
 }
 
 function systemPrompt(plan: Plan): string {
-	return `You are a job interviewer for a ${plan.level} ${plan.role} position (stack: ${plan.stack.join(', ')}).
+	return `You are ${INTERVIEWER}, a job interviewer for a ${plan.level} ${plan.role} position (stack: ${plan.stack.join(', ')}).
 Your question plan, in order:
 ${plan.questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
 
@@ -46,7 +47,7 @@ Never grade, score, rate or give feedback on the quality of an answer.`;
 
 const HINT_PROMPT =
 	'Give the candidate one short nudge for the current question. Do not give the answer. One sentence, plain text.';
-const GREET_PROMPT = 'Greet the candidate briefly and ask question 1.';
+const GREET_PROMPT = `Greet the candidate briefly, introduce yourself as ${INTERVIEWER}, and ask question 1.`;
 
 const toMessage = (e: Entry): Message =>
 	e.who === 'you'

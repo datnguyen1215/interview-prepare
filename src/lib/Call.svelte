@@ -27,7 +27,7 @@
 	import { onMount } from 'svelte';
 	import { uploadRecording, type startRecording } from '#lib/media.js';
 	import type { Plan } from '#lib/server/interviewer.js';
-	import { clock, formatTranscript, whoLabel, type TimedEntry } from '#lib/transcript.js';
+	import { INTERVIEWER, clock, formatTranscript, whoLabel, type TimedEntry } from '#lib/transcript.js';
 
 	let {
 		plan,
@@ -47,12 +47,12 @@
 		onsaved: () => Promise<void>;
 	} = $props();
 
-	type Caption = { who?: 'Interviewer' | 'You' | 'Hint' | 'Error'; text: string };
+	type Caption = { who?: typeof INTERVIEWER | 'You' | 'Hint' | 'Error'; text: string };
 	type Speech = { speaking: boolean; queued: number };
 	type Clip = { recorder: MediaRecorder; chunks: Blob[]; t0: number; at: number };
 
 	const CAPTION_STYLE: Record<NonNullable<Caption['who']>, string | undefined> = {
-		Interviewer: undefined,
+		[INTERVIEWER]: undefined,
 		You: 'color:var(--good)',
 		Hint: 'color:var(--warn)',
 		Error: 'color:var(--bad)'
@@ -122,7 +122,7 @@
 		log('turn done', { ms: since(tTurn), chars: text.length });
 		if (ended) return log('turn reply dropped after End', { chars: text.length });
 		entries.push({ who: 'interviewer', text, at: elapsed });
-		caption = { who: 'Interviewer', text };
+		caption = { who: INTERVIEWER, text };
 		void waitForSpeech(t0);
 	}
 
@@ -324,7 +324,7 @@
 	{/if}
 	<div class="tiles">
 		<!-- svelte-ignore a11y_label_has_associated_control -->
-		<div class="tile" class:talking={aiTalking}><div class="avatar">AI</div><label>Interviewer</label></div>
+		<div class="tile" class:talking={aiTalking}><div class="avatar">{INTERVIEWER[0]}</div><label>{INTERVIEWER}</label></div>
 		<!-- svelte-ignore a11y_label_has_associated_control -->
 		<div class="tile" class:talking={youTalking}><video class="me" use:preview={camera} autoplay muted></video><label>You</label></div>
 	</div>

@@ -110,7 +110,7 @@ async function startCall(page: Page) {
 	await shareScreen(page);
 	await page.getByLabel('Job post').fill(JOB_POST);
 	await page.getByRole('button', { name: '● Start interview' }).click();
-	await expect(page.locator('.captions')).toHaveText(`Interviewer: ${QUESTION}`);
+	await expect(page.locator('.captions')).toHaveText(`Daniel: ${QUESTION}`);
 	await expect(pill(page)).toBeEnabled();
 }
 
@@ -125,7 +125,7 @@ async function holdSpace(page: Page, ms = 600) {
 
 // Waits for the interviewer to finish first, so the hold is not a barge-in.
 async function answerOnce(page: Page, calls: Calls) {
-	await expect(page.locator('.tile', { hasText: 'Interviewer' })).not.toHaveClass(/talking/);
+	await expect(page.locator('.tile', { hasText: 'Daniel' })).not.toHaveClass(/talking/);
 	await holdSpace(page);
 	await expect.poll(() => calls.turn.length).toBe(2);
 }
@@ -153,11 +153,11 @@ test('setup prepares questions and the call shows the first question', async ({ 
 	await expect(start).toBeEnabled();
 	await start.click();
 
-	await expect(page.locator('.captions')).toHaveText(`Interviewer: ${QUESTION}`);
+	await expect(page.locator('.captions')).toHaveText(`Daniel: ${QUESTION}`);
 	expect(calls.plan).toEqual([{ jobPost: JOB_POST }]);
 	expect(calls.turn).toEqual([{ plan: PLAN, history: [], kind: 'next' }]);
 
-	const ai = page.locator('.tile', { hasText: 'Interviewer' });
+	const ai = page.locator('.tile', { hasText: 'Daniel' });
 	await expect(ai).toHaveClass(/talking/);
 	await expect(ai).not.toHaveClass(/talking/);
 	expect(calls.speech).toBe(3);
@@ -168,7 +168,7 @@ test('setup prepares questions and the call shows the first question', async ({ 
 	await expect(timer).not.toHaveText(before ?? '', { timeout: 3000 });
 
 	await page.getByRole('button', { name: '☰ Transcript' }).click();
-	await expect(page.locator('.drawer .msg')).toHaveText([`Interviewer${QUESTION}`]);
+	await expect(page.locator('.drawer .msg')).toHaveText([`Daniel${QUESTION}`]);
 });
 
 test('Share screen is required before Start, and Start reuses that share', async ({ page }) => {
@@ -186,7 +186,7 @@ test('Share screen is required before Start, and Start reuses that share', async
 	await expect(start).toBeEnabled();
 
 	await start.click();
-	await expect(page.locator('.captions')).toHaveText(`Interviewer: ${QUESTION}`);
+	await expect(page.locator('.captions')).toHaveText(`Daniel: ${QUESTION}`);
 	expect(calls.plan).toHaveLength(1);
 	expect(await displayCalls(page)).toBe(1);
 });
@@ -242,7 +242,7 @@ test('holding Space records a clip, transcribes it and asks the next turn', asyn
 	const slow = gate();
 	const calls = await stubInterview(page, { slowTurn: slow.opened });
 	await startCall(page);
-	const ai = page.locator('.tile', { hasText: 'Interviewer' });
+	const ai = page.locator('.tile', { hasText: 'Daniel' });
 	const you = page.locator('.tile', { hasText: 'You' });
 
 	await page.keyboard.down('Space');
@@ -270,13 +270,13 @@ test('holding Space records a clip, transcribes it and asks the next turn', asyn
 	});
 
 	slow.open();
-	await expect(page.locator('.captions')).toHaveText(`Interviewer: ${FOLLOW_UP}`);
+	await expect(page.locator('.captions')).toHaveText(`Daniel: ${FOLLOW_UP}`);
 });
 
 test('holding Space while the interviewer speaks stops the speech', async ({ page }) => {
 	const calls = await stubInterview(page, { speakingPolls: Infinity });
 	await startCall(page);
-	const ai = page.locator('.tile', { hasText: 'Interviewer' });
+	const ai = page.locator('.tile', { hasText: 'Daniel' });
 	await expect(ai).toHaveClass(/talking/);
 
 	await page.keyboard.down('Space');
@@ -302,7 +302,7 @@ test('hint shows a Hint caption and is not spoken', async ({ page }) => {
 	await expect(page.locator('.captions')).toHaveText(`Hint: ${HINT}`);
 	expect(calls.turn[1]?.kind).toBe('hint');
 	await page.getByRole('button', { name: '☰ Transcript' }).click();
-	await expect(page.locator('.drawer .msg')).toHaveText([`Interviewer${QUESTION}`, `Hint${HINT}`]);
+	await expect(page.locator('.drawer .msg')).toHaveText([`Daniel${QUESTION}`, `Hint${HINT}`]);
 });
 
 test('a second Space press while a turn is pending sends nothing', async ({ page }) => {
@@ -316,7 +316,7 @@ test('a second Space press while a turn is pending sends nothing', async ({ page
 	await holdSpace(page);
 	await expect(pill(page)).toHaveAttribute('aria-pressed', 'false');
 	slow.open();
-	await expect(page.locator('.captions')).toHaveText(`Interviewer: ${FOLLOW_UP}`);
+	await expect(page.locator('.captions')).toHaveText(`Daniel: ${FOLLOW_UP}`);
 	await page.waitForTimeout(300);
 	expect(calls.transcribe).toHaveLength(1);
 	expect(calls.turn).toHaveLength(2);
@@ -326,7 +326,7 @@ test('End uploads the recording and its transcript, then returns to the library'
 	const calls = await stubInterview(page);
 	await startCall(page);
 	await answerOnce(page, calls);
-	await expect(page.locator('.captions')).toHaveText(`Interviewer: ${FOLLOW_UP}`);
+	await expect(page.locator('.captions')).toHaveText(`Daniel: ${FOLLOW_UP}`);
 
 	const reload = page.waitForRequest((r) => new URL(r.url()).pathname === '/__data.json');
 	await endButton(page).click();
@@ -343,9 +343,9 @@ test('End uploads the recording and its transcript, then returns to the library'
 	const lines = transcript?.body?.toString().split('\n') ?? [];
 	expect(lines.every((l) => /^\[0:\d\d\] /.test(l))).toBe(true);
 	expect(lines.map((l) => l.replace(/^\[\d+:\d\d\] /, ''))).toEqual([
-		`Interviewer: ${QUESTION}`,
+		`Daniel: ${QUESTION}`,
 		`You: ${ANSWER}`,
-		`Interviewer: ${FOLLOW_UP}`
+		`Daniel: ${FOLLOW_UP}`
 	]);
 });
 
@@ -364,7 +364,7 @@ test('End during a pending turn waits for it and drops the reply', async ({ page
 	await expect(page.locator('.lib')).toBeAttached();
 	expect(calls.events.indexOf('speech:DELETE')).toBeGreaterThan(calls.events.lastIndexOf('turn:next'));
 	const lines = transcriptPosts(recordings)[0]?.body?.toString().split('\n') ?? [];
-	expect(lines.map((l) => l.replace(/^\[\d+:\d\d\] /, ''))).toEqual([`Interviewer: ${QUESTION}`, `You: ${ANSWER}`]);
+	expect(lines.map((l) => l.replace(/^\[\d+:\d\d\] /, ''))).toEqual([`Daniel: ${QUESTION}`, `You: ${ANSWER}`]);
 });
 
 test('a failed transcript save shows Retry save, which retries without re-uploading', async ({ page, recordings }) => {

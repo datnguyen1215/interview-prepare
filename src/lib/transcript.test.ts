@@ -15,7 +15,7 @@ describe('transcript', () => {
 			{ who: 'hint', text: 'Think about write load.', at: 70 }
 		]);
 		expect(text).toBe(
-			'[0:01] Interviewer: Tell me about a service you scaled.\n[0:12] You: We sharded Postgres.\n[1:10] Hint: Think about write load.'
+			'[0:01] Daniel: Tell me about a service you scaled.\n[0:12] You: We sharded Postgres.\n[1:10] Hint: Think about write load.'
 		);
 	});
 });

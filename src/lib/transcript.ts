@@ -1,8 +1,10 @@
 import type { Entry } from '#lib/server/interviewer.js';
 
+export const INTERVIEWER = 'Daniel';
+
 export type TimedEntry = Entry & { at: number };
 
-const WHO = { interviewer: 'Interviewer', you: 'You', hint: 'Hint' } as const;
+const WHO = { interviewer: INTERVIEWER, you: 'You', hint: 'Hint' } as const;
 
 export const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
