@@ -421,3 +421,22 @@ test('a transcribe failure shows an Error caption and the call continues', async
 	await expect(pill(page)).toBeEnabled();
 	expect(calls.turn).toHaveLength(1);
 });
+
+test('the call view shows the shared screen', async ({ page }) => {
+	await exposeDisplayStream(page);
+	await stubInterview(page);
+	await startCall(page);
+	const video = page.locator('.call .screen video');
+	await expect
+		.poll(() =>
+			video.evaluate((v: HTMLVideoElement) => {
+				const s = v.srcObject as MediaStream | null;
+				return {
+					same: s === (window as unknown as { displayStream: MediaStream }).displayStream,
+					live: s?.getVideoTracks()[0]?.readyState,
+					width: v.videoWidth > 0
+				};
+			})
+		)
+		.toEqual({ same: true, live: 'live', width: true });
+});
