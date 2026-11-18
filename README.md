@@ -20,7 +20,7 @@ Practice job interviews out loud. Paste a job post and an AI interviewer runs a 
 ## Quick start
 
 1. `npm install`, then copy `.env.example` to `.env` and add your DeepSeek API key.
-2. Start the voice services: speech-to-text (`stt/run.sh`) and a Kokoro text-to-speech server.
+2. Start the voice services: speech-to-text (`stt/run.sh`) and Daniel's voice (`tts/run.sh`).
 3. `npm run dev` and open the page in Chrome.
 4. Wait for the checks to turn green, share your screen, paste a job post, and click **Start interview**.
 

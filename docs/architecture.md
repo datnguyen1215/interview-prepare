@@ -14,8 +14,8 @@ flowchart LR
         REC["/api/recordings"]
     end
     DS[(DeepSeek API<br/>deepseek-chat)]
-    KOK[Kokoro TTS<br/>Unix socket]
-    WH[faster-whisper<br/>127.0.0.1:8790]
+    KOK[Kokoro TTS on CPU<br/>tts/ · Unix socket]
+    WH[Nemotron STT on CPU<br/>stt/ · 127.0.0.1:8790]
     FS[(./recordings)]
 
     UI -- job post --> PLAN --> DS
@@ -49,8 +49,8 @@ The canvas is redrawn from a Web Worker timer so recording keeps going when the 
 
 - SvelteKit 3, Svelte 5 (runes), TypeScript, Vite
 - DeepSeek chat completions (OpenAI-compatible API)
-- Kokoro TTS over a Unix socket
-- faster-whisper (`large-v3-turbo`) on CUDA, served by a small Python HTTP server
+- Kokoro TTS (`Kokoro-82M`, voice `bm_daniel`) on CPU, served by a small Python Unix-socket server
+- NVIDIA Nemotron speech-to-text (`nemotron-speech-streaming-en-0.6b`, int8 ONNX) on CPU, served by a small Rust HTTP server using `parakeet-rs`
 - Browser media APIs: `getDisplayMedia`, `getUserMedia`, Canvas `captureStream`, Web Audio, `MediaRecorder`
 - PipeWire loopback for system audio capture
 - Silero VAD in the browser via `@ricky0123/vad-web` (ONNX Runtime Web)
@@ -58,7 +58,7 @@ The canvas is redrawn from a Web Worker timer so recording keeps going when the 
 
 ## Kokoro socket protocol
 
-`src/lib/server/kokoro.ts` opens one connection per request to `$XDG_RUNTIME_DIR/kokoro-speaker.sock`, writes one JSON line, reads one JSON line back, and closes. Requests time out after 5 seconds.
+`src/lib/server/kokoro.ts` opens one connection per request to `$XDG_RUNTIME_DIR/interview-kokoro.sock` (served by `tts/server.py`), writes one JSON line, reads one JSON line back, and closes. Requests time out after 5 seconds.
 
 | Request | Meaning | Reply |
 | --- | --- | --- |
@@ -85,7 +85,8 @@ src/
     media.ts                  canvas composite, audio mix, MediaRecorder, upload
     transcript.ts             transcript formatting
     server/                   DeepSeek, Kokoro, STT clients, interview prompts, file storage
-stt/                          faster-whisper HTTP server
+stt/                          Nemotron speech-to-text server (Rust); model in stt/models/
+tts/                          Kokoro speech server (CPU); model cached in tts/models/
 e2e/                          Playwright tests with fake media
 docs/                         design notes, plan, screenshots
 ```
