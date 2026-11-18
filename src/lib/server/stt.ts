@@ -21,6 +21,6 @@ export async function transcribe(body: ArrayBuffer): Promise<string> {
 	}
 	const data: { text?: unknown; ms?: unknown } = await res.json();
 	if (typeof data.text !== 'string') throw new Error(`STT reply has no text: ${JSON.stringify(data).slice(0, 200)}`);
-	log('transcribe done', { ms: Date.now() - t0, whisperMs: data.ms, chars: data.text.length });
+	log('transcribe done', { ms: Date.now() - t0, sttMs: data.ms, chars: data.text.length });
 	return data.text;
 }

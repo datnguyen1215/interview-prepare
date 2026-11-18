@@ -1,0 +1,10 @@
+[package]
+name = "stt"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+parakeet-rs = "0.4.4"
+hound = "3.5"
+tiny_http = "0.12"
+serde_json = "1"
