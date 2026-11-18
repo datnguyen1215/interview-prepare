@@ -7,8 +7,8 @@ const log = (...args: unknown[]) => console.log(new Date().toISOString(), '[koko
 
 function socketPath(): string {
 	const dir = process.env.XDG_RUNTIME_DIR;
-	if (!dir) throw new Error('XDG_RUNTIME_DIR is not set; cannot locate kokoro-speaker.sock');
-	return `${dir}/kokoro-speaker.sock`;
+	if (!dir) throw new Error('XDG_RUNTIME_DIR is not set; cannot locate interview-kokoro.sock');
+	return `${dir}/interview-kokoro.sock`;
 }
 
 function send(req: Request): Promise<Reply> {
@@ -33,7 +33,7 @@ function send(req: Request): Promise<Reply> {
 		sock.on('error', (e: NodeJS.ErrnoException) => {
 			log('error', req.cmd, { path, ms: Date.now() - t0, code: e.code, message: e.message });
 			if (e.code === 'ENOENT' || e.code === 'ECONNREFUSED')
-				return reject(new Error(`kokoro-speaker not reachable at ${path} (${e.code}); start it with systemctl --user start kokoro-speaker`));
+				return reject(new Error(`kokoro not reachable at ${path} (${e.code}); start it with tts/run.sh`));
 			reject(e);
 		});
 	});

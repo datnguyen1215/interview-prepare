@@ -19,7 +19,7 @@ function serve(reply: (req: { cmd: string }) => object) {
 		});
 	});
 	server = srv;
-	return new Promise<void>((resolve) => srv.listen(path.join(dir, 'kokoro-speaker.sock'), resolve));
+	return new Promise<void>((resolve) => srv.listen(path.join(dir, 'interview-kokoro.sock'), resolve));
 }
 
 beforeEach(() => {
@@ -50,9 +50,9 @@ describe('kokoro', () => {
 	});
 
 	it('throws naming the socket and the start command when the socket is missing', async () => {
-		const sock = path.join(dir, 'kokoro-speaker.sock');
-		await expect(stop()).rejects.toThrow(`kokoro-speaker not reachable at ${sock}`);
-		await expect(stop()).rejects.toThrow('systemctl --user start kokoro-speaker');
+		const sock = path.join(dir, 'interview-kokoro.sock');
+		await expect(stop()).rejects.toThrow(`kokoro not reachable at ${sock}`);
+		await expect(stop()).rejects.toThrow('tts/run.sh');
 	});
 
 	it('throws when XDG_RUNTIME_DIR is unset', async () => {

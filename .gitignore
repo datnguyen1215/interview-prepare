@@ -24,7 +24,10 @@ vite.config.ts.timestamp-*
 /recordings
 
 # STT + tests
-stt/.venv/
+stt/target/
+stt/models/
+tts/.venv/
+tts/models/
 test-results/
 playwright-report/
 
